@@ -1,8 +1,9 @@
 fastapi
 uvicorn
-requests
+pandas
+numpy
+pvlib
 scikit-learn==1.6.1
 joblib
+requests
 python-dotenv
-pvlib
-pandas
