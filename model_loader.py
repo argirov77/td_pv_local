@@ -1,80 +1,62 @@
-import os
-import joblib
 import logging
+import os
+from typing import Optional
+
+import joblib
 import numpy as np
 import pandas as pd
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-MODEL_DIR = os.getenv("MODEL_DIR", "C:/Users/Dmitrii/predict_pow/v1/Model")
+MODEL_DIR = os.getenv("MODEL_DIR", os.path.join(os.path.dirname(__file__), "models"))
 
-def load_model(tag: str):
-    """
-    Зарежда модел за машинно обучение по даден tag.
-    Ако моделът с име {tag}_model.pkl (или tag, ако вече има разширение .pkl) не е намерен,
-    се използва модел с име "P0063H01_E001_model.pkl".
-    """
-    if tag.endswith(".pkl"):
-        model_file = tag
-    else:
-        model_file = f"{tag}_model.pkl"
 
-    model_path = os.path.join(MODEL_DIR, model_file)
-    logger.debug(f"[load_model] Търсене на файл с модел: {model_path}")
-    print("MODEL_DIR =", repr(MODEL_DIR))
-    print("model_file =", repr(model_file))
-    print("model_path =", repr(model_path))
-    print("os.path.exists(model_path) =", os.path.exists(model_path))
-    
+def _resolve_model_path(filename: str) -> str:
+    if os.path.isabs(filename):
+        return filename
+    candidate = os.path.join(MODEL_DIR, filename)
+    if os.path.exists(candidate):
+        return candidate
+    return filename
+
+
+def load_model(model_name: str) -> Optional[object]:
+    """Load a serialized model from disk.
+
+    If ``model_name`` is provided without path, it is resolved relative to ``MODEL_DIR``.
+    """
+    if not model_name.endswith(".pkl"):
+        model_name = f"{model_name}_model.pkl"
+
+    model_path = _resolve_model_path(model_name)
+    logger.debug("[load_model] Looking for model at %s", model_path)
+
     if not os.path.exists(model_path):
-        logger.error(f"[load_model] Файлът с модел не е намерен: {model_path}")
-        fallback_model = "P0063H01_E001_model.pkl"
-        fallback_path = os.path.join(MODEL_DIR, fallback_model)
-        print("Fallback model path:", fallback_path)
-        if os.path.exists(fallback_path):
-            try:
-                logger.debug(f"[load_model] Опит за зареждане на резервен модел: {fallback_path}")
-                model = joblib.load(fallback_path)
-                logger.info(f"[load_model] Резервен модел зареден успешно от: {fallback_path}")
-                return model
-            except Exception as e:
-                logger.exception(f"[load_model] Грешка при зареждане на резервен модел: {e}")
-                return None
-        else:
-            logger.error(f"[load_model] Резервният файл с модел не е намерен: {fallback_path}")
-            return None
+        logger.error("[load_model] Model file not found: %s", model_path)
+        return None
+
     try:
-        logger.debug(f"[load_model] Опит за зареждане на модел от: {model_path}")
         model = joblib.load(model_path)
-        logger.info(f"[load_model] Моделът е зареден успешно от: {model_path}")
+        logger.info("[load_model] Loaded model from %s", model_path)
         return model
-    except ModuleNotFoundError as mnfe:
-        logger.error(f"[load_model] ModuleNotFoundError: {mnfe}. Проверете дали scikit-learn е инсталиран.")
+    except Exception as exc:
+        logger.exception("[load_model] Failed to load model %s: %s", model_path, exc)
         return None
-    except Exception as e:
-        logger.exception(f"[load_model] Грешка при зареждане на модел '{tag}': {e}")
-        return None
+
 
 def predict_power(model, weather_sample: dict):
     """
-    Генерира прогноза за мощност, използвайки модел (model) и речник с метеорологични признаци (weather_sample).
-    
-    Поддържат се 2 типа модели:
-      - Модел с 2 признака: "radiation_w_m2_y" и "cloud".
-      - Модел с 25 признака: подробен набор от признаци.
-    
-    Функцията определя очаквания брой признаци (чрез model.n_features_in_) и формира DataFrame.
-    Връща предсказанието или None при грешка.
+    Backward-compatible prediction helper for legacy models.
     """
     try:
-        n_features = getattr(model, 'n_features_in_', None)
+        n_features = getattr(model, "n_features_in_", None)
         logger.debug(f"[predict_power] model.n_features_in_ = {n_features}")
 
         if n_features == 2:
             rad_value = weather_sample.get("radiation_w_m2_y", 0.0)
             cloud_value = weather_sample.get("cloud", 0.0)
-            
+
             input_data = pd.DataFrame({
                 "radiation_w_m2_y": [rad_value],
                 "cloud": [cloud_value]
@@ -113,7 +95,7 @@ def predict_power(model, weather_sample: dict):
                 weather_sample.get("hour_category", ""),
                 weather_sample.get("solar_intensity_score", 0.0)
             ]
-            
+
             columns = [
                 "hour_local", "temp_c", "is_day", "condition_text", "wind_kph", "wind_degree",
                 "wind_dir", "pressure_mb", "precip_mm", "snow_cm", "humidity", "cloud",
