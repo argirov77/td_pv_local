@@ -1,12 +1,8 @@
 fastapi
 uvicorn
-psycopg2-binary
 requests
 scikit-learn==1.6.1
 joblib
 python-dotenv
 pvlib
 pandas
-sqlalchemy
-javaobj-py3        
-joblib  
