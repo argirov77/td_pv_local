@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import logging
 from typing import Dict, Optional
 
@@ -69,6 +69,13 @@ def _build_feature_frame(weather: pd.DataFrame, poa: pd.Series, model) -> Option
             features[name] = 0.0
 
     return features[list(feature_names)]
+
+
+def _get_default_tag() -> Optional[str]:
+    available_tags = list_available_tags()
+    if not available_tags:
+        return None
+    return available_tags[0].get("tag")
 
 
 def _render_frontend_page() -> str:
@@ -197,6 +204,17 @@ def _render_frontend_page() -> str:
                 <canvas id=\"chart\" height=\"120\"></canvas>
                 <div class=\"status\" id=\"status\">Заредете данните, за да видите графиката.</div>
             </div>
+            
+            <div class=\"card\">
+                <h3 style=\"margin-top: 0;\">Тестови проверки</h3>
+                <p class=\"helper\" style=\"margin-bottom: 12px;\">Проверете връзката към таговете, метео API и заредения модел.</p>
+                <div style=\"display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));\">
+                    <button type=\"button\" id=\"test-tags\">Провери тагове</button>
+                    <button type=\"button\" id=\"test-weather\">Провери Weather API</button>
+                    <button type=\"button\" id=\"test-model\">Провери модел</button>
+                </div>
+                <div class=\"status\" id=\"test-status\" style=\"margin-top: 12px;\">Натиснете бутон, за да стартира тест.</div>
+            </div>
         </div>
 
         <script>
@@ -206,6 +224,7 @@ def _render_frontend_page() -> str:
             const form = document.getElementById('predict-form');
             const statusEl = document.getElementById('status');
             const submitBtn = document.getElementById('submit-btn');
+            const testStatusEl = document.getElementById('test-status');
             let chartInstance = null;
 
             function populateTags() {{
@@ -319,6 +338,26 @@ def _render_frontend_page() -> str:
                 const today = new Date().toISOString().slice(0, 10);
                 dateInput.value = today;
             }})();
+
+            async function runTest(path, label) {{
+                testStatusEl.textContent = `Изпълнява ${label}...`;
+                try {{
+                    const response = await fetch(path);
+                    if (!response.ok) {{
+                        const error = await response.json().catch(() => ({{ detail: 'Неразпозната грешка' }}));
+                        throw new Error(error.detail || 'Неуспешна заявка');
+                    }}
+                    const data = await response.json();
+                    testStatusEl.textContent = `${label}: ${data.message || 'Успешно.'}`;
+                }} catch (err) {{
+                    console.error(err);
+                    testStatusEl.textContent = `${label}: ${err.message}`;
+                }}
+            }
+
+            document.getElementById('test-tags').addEventListener('click', () => runTest('/health/tags', 'Тест тагове'));
+            document.getElementById('test-weather').addEventListener('click', () => runTest('/health/weather', 'Тест Weather API'));
+            document.getElementById('test-model').addEventListener('click', () => runTest('/health/model', 'Тест модел'));
         </script>
     </body>
     </html>
@@ -421,3 +460,64 @@ def predict(request: PredictRequest):
         )
 
     return response
+
+
+@app.get("/health/tags")
+def health_tags():
+    tags = list_available_tags()
+    total = len(tags)
+    sample = tags[0]["tag"] if tags else None
+    return {
+        "ok": bool(tags),
+        "count": total,
+        "sample_tag": sample,
+        "message": f"Намерени тагове: {total}" if tags else "Няма налични тагове.",
+    }
+
+
+@app.get("/health/weather")
+def health_weather(tag: Optional[str] = None, target_date: Optional[str] = None):
+    chosen_tag = tag or _get_default_tag()
+    if not chosen_tag:
+        raise HTTPException(503, "Не са намерени тагове за тестване.")
+
+    spec = get_tag_specification(chosen_tag)
+    if not spec:
+        raise HTTPException(503, "Липсва спецификация за избрания таг.")
+
+    lat = spec.get("latitude")
+    lon = spec.get("longitude")
+    if lat is None or lon is None:
+        raise HTTPException(503, "Спецификацията няма координати.")
+
+    try:
+        date_value = datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else date.today()
+    except ValueError:
+        raise HTTPException(400, "Невалиден формат на дата. Очаква се YYYY-MM-DD.")
+
+    data = fetch_weather_forecast(float(lat), float(lon), date_value)
+    if not data:
+        raise HTTPException(502, "Неуспешно извличане на прогноза.")
+
+    return {
+        "ok": True,
+        "message": f"Получени записи: {len(data)}",
+        "sample_time": data[0].get("time") if data else None,
+        "tag_used": chosen_tag,
+    }
+
+
+@app.get("/health/model")
+def health_model():
+    if MODEL is None:
+        raise HTTPException(503, "Моделът не е зареден.")
+
+    feature_names = getattr(MODEL, "feature_names_in_", None)
+    message = "Моделът е зареден."
+    if feature_names is not None:
+        message += f" Брой признаци: {len(feature_names)}."
+
+    return {
+        "ok": True,
+        "message": message,
+    }
