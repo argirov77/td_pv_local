@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 import math
 from pathlib import Path
@@ -20,6 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 THRESHOLD_RADIATION = 40  # W/m²
+MAX_FORECAST_DAYS_AHEAD = 14
 
 
 class PredictRequest(BaseModel):
@@ -65,6 +66,13 @@ def predict(request: PredictRequest):
         raise HTTPException(400, "Невалиден формат на дата. Очаква се YYYY-MM-DD.")
 
     today = date.today()
+    if forecast_date > today + timedelta(days=MAX_FORECAST_DAYS_AHEAD):
+        raise HTTPException(
+            400,
+            f"Прогнозата е достъпна до {MAX_FORECAST_DAYS_AHEAD} дни напред."
+            " Моля, избери по-близка дата.",
+        )
+
     tag = request.tag
     spec = get_tag_specification(tag)
     if not spec:
