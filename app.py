@@ -77,11 +77,11 @@ def _render_frontend_page() -> str:
 
     return f"""
     <!DOCTYPE html>
-    <html lang=\"ru\">
+    <html lang=\"bg\">
     <head>
         <meta charset=\"UTF-8\" />
         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
-        <title>Прогноз производства</title>
+        <title>Прогноза за производство</title>
         <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />
         <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />
         <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap\" rel=\"stylesheet\" />
@@ -179,23 +179,23 @@ def _render_frontend_page() -> str:
     </head>
     <body>
         <div class=\"page\">
-            <h1>Прогноз производства</h1>
-            <p class=\"helper\">Выберите объект и дату, чтобы получить почасовой график прогнозируемой мощности.</p>
+            <h1>Прогноза за производство</h1>
+            <p class=\"helper\">Изберете обект и дата, за да получите почасова графика на прогнозираната мощност.</p>
             <form id=\"predict-form\">
                 <label>
-                    Объект
+                    Обект
                     <select id=\"tag-select\" required></select>
                 </label>
                 <label>
                     Дата
                     <input id=\"date-input\" type=\"date\" required />
                 </label>
-                <button type=\"submit\" id=\"submit-btn\">Показать прогноз</button>
+                <button type=\"submit\" id=\"submit-btn\">Покажи прогноза</button>
             </form>
 
             <div class=\"card\">
                 <canvas id=\"chart\" height=\"120\"></canvas>
-                <div class=\"status\" id=\"status\">Загрузите данные, чтобы увидеть график.</div>
+                <div class=\"status\" id=\"status\">Заредете данните, за да видите графиката.</div>
             </div>
         </div>
 
@@ -212,7 +212,7 @@ def _render_frontend_page() -> str:
                 tagSelect.innerHTML = '';
                 if (!tagOptions.length) {{
                     const opt = document.createElement('option');
-                    opt.textContent = 'Нет доступных объектов';
+                    opt.textContent = 'Няма налични обекти';
                     opt.disabled = true;
                     opt.selected = true;
                     tagSelect.appendChild(opt);
@@ -231,7 +231,7 @@ def _render_frontend_page() -> str:
 
             function setLoading(isLoading) {{
                 submitBtn.disabled = isLoading;
-                submitBtn.textContent = isLoading ? 'Загрузка...' : 'Показать прогноз';
+                submitBtn.textContent = isLoading ? 'Зареждане...' : 'Покажи прогноза';
             }}
 
             function updateChart(data) {{
@@ -248,7 +248,7 @@ def _render_frontend_page() -> str:
                     data: {{
                         labels,
                         datasets: [{{
-                            label: 'Прогноз мощности (кВт)',
+                            label: 'Прогноза за мощност (кВт)',
                             data: values,
                             fill: true,
                             borderColor: '#2563eb',
@@ -279,12 +279,12 @@ def _render_frontend_page() -> str:
                 const prediction_date = dateInput.value;
 
                 if (!tag || !prediction_date) {{
-                    statusEl.textContent = 'Укажите объект и дату.';
+                    statusEl.textContent = 'Посочете обект и дата.';
                     return;
                 }}
 
                 setLoading(true);
-                statusEl.textContent = 'Запрос прогноза...';
+                statusEl.textContent = 'Заявка за прогноза...';
 
                 try {{
                     const response = await fetch('/predict', {{
@@ -295,16 +295,16 @@ def _render_frontend_page() -> str:
 
                     if (!response.ok) {{
                         const error = await response.json();
-                        throw new Error(error.detail || 'Не удалось получить прогноз');
+                        throw new Error(error.detail || 'Неуспешно получаване на прогноза');
                     }}
 
                     const data = await response.json();
                     if (!Array.isArray(data) || data.length === 0) {{
-                        statusEl.textContent = 'Данные отсутствуют для выбранных параметров.';
+                        statusEl.textContent = 'Няма данни за избраните параметри.';
                         return;
                     }}
 
-                    statusEl.textContent = 'Получено ' + data.length + ' точек. График показывает почасовой прогноз.';
+                    statusEl.textContent = 'Получени са ' + data.length + ' точки. Графиката показва почасова прогноза.';
                     updateChart(data);
                 }} catch (err) {{
                     console.error(err);
