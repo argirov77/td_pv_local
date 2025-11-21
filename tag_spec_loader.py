@@ -14,8 +14,10 @@ if _env_spec_path:
     DEFAULT_SPEC_PATH = Path(_env_spec_path)
     if not DEFAULT_SPEC_PATH.is_absolute():
         DEFAULT_SPEC_PATH = (Path.cwd() / DEFAULT_SPEC_PATH).resolve()
+    logger.info("Using TAG_SPEC_PATH from environment: %s", DEFAULT_SPEC_PATH)
 else:
     DEFAULT_SPEC_PATH = MODULE_DIR / "data" / "tag_spec.csv"
+    logger.info("Using default tag specification path: %s", DEFAULT_SPEC_PATH)
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -45,8 +47,10 @@ def _load_spec_df() -> pd.DataFrame:
     if not DEFAULT_SPEC_PATH.exists():
         logger.error("Tag specification file not found: %s", DEFAULT_SPEC_PATH)
         return pd.DataFrame()
+    logger.info("Loading tag specification from %s", DEFAULT_SPEC_PATH)
     df = pd.read_csv(DEFAULT_SPEC_PATH)
     df = _normalize_columns(df)
+    logger.info("Loaded %d tag specification rows with columns: %s", len(df), list(df.columns))
     return df
 
 
@@ -73,6 +77,7 @@ def get_tag_specification(topic: str) -> Optional[Dict]:
 def list_available_tags() -> List[Dict[str, str]]:
     df = _load_spec_df()
     if df.empty:
+        logger.warning("Tag specification dataframe is empty; cannot list tags")
         return []
 
     if "tag" not in df.columns:
@@ -87,4 +92,5 @@ def list_available_tags() -> List[Dict[str, str]]:
             entry["tag_type"] = str(row[tag_type_col])
         records.append(entry)
 
+    logger.info("Prepared %d available tag entries", len(records))
     return records

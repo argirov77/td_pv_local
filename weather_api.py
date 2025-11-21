@@ -51,6 +51,14 @@ def fetch_weather_forecast(latitude: float, longitude: float, target_date: date)
 
     api_url = FORECAST_API_URL if target_date >= date.today() else HISTORY_API_URL
 
+    logger.info(
+        "Requesting weather data from %s for lat=%s lon=%s date=%s",
+        api_url,
+        latitude,
+        longitude,
+        target_date,
+    )
+
     params = {
         "key": WEATHER_API_KEY,
         "q": f"{latitude},{longitude}",
@@ -61,12 +69,14 @@ def fetch_weather_forecast(latitude: float, longitude: float, target_date: date)
 
     try:
         response = requests.get(api_url, params=params, timeout=15)
+        logger.info("Weather API response status: %s", response.status_code)
         response.raise_for_status()
     except requests.RequestException as exc:
         logger.error("Weather API request failed: %s", exc)
         return None
 
     payload = response.json()
+    logger.debug("Weather API raw payload keys: %s", list(payload.keys()))
     forecast_days = payload.get("forecast", {}).get("forecastday", [])
     if not forecast_days:
         logger.error("Weather API response missing forecast data")

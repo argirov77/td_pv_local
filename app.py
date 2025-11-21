@@ -72,7 +72,9 @@ def _build_feature_frame(weather: pd.DataFrame, poa: pd.Series, model) -> Option
 def _get_default_tag() -> Optional[str]:
     available_tags = list_available_tags()
     if not available_tags:
+        logger.warning("No available tags when attempting to select default")
         return None
+    logger.info("Selecting default tag from %d available entries", len(available_tags))
     return available_tags[0].get("tag")
 
 
@@ -396,11 +398,13 @@ def home():
 @app.get("/tags")
 def list_tags():
     tags = list_available_tags()
+    logger.info("/tags requested, returning %d entries", len(tags))
     return {"tags": tags, "count": len(tags)}
 
 
 @app.post("/predict")
 def predict(request: PredictRequest):
+    logger.info("/predict called for tag=%s date=%s", request.tag, request.prediction_date)
     try:
         forecast_date = datetime.strptime(request.prediction_date, "%Y-%m-%d").date()
     except ValueError:
@@ -409,6 +413,7 @@ def predict(request: PredictRequest):
     tag = request.tag
     spec = get_tag_specification(tag)
     if not spec:
+        logger.warning("No specification found for tag '%s'", tag)
         raise HTTPException(400, f"No specification found for tag '{tag}'.")
 
     lat = spec.get("latitude")
@@ -437,6 +442,7 @@ def predict(request: PredictRequest):
 
     weather_records = fetch_weather_forecast(float(lat), float(lon), forecast_date)
     if not weather_records:
+        logger.error("Weather data retrieval failed for tag=%s date=%s", tag, forecast_date)
         raise HTTPException(404, "No weather data for this object/date.")
 
     weather_df = pd.DataFrame(weather_records)
@@ -497,6 +503,7 @@ def health_tags():
     tags = list_available_tags()
     total = len(tags)
     sample = tags[0]["tag"] if tags else None
+    logger.info("Health tags check: total=%d sample=%s", total, sample)
     return {
         "ok": bool(tags),
         "count": total,
@@ -527,6 +534,7 @@ def health_weather(tag: Optional[str] = None, target_date: Optional[str] = None)
 
     data = fetch_weather_forecast(float(lat), float(lon), date_value)
     if not data:
+        logger.error("Health weather check failed for tag=%s date=%s", chosen_tag, date_value)
         raise HTTPException(502, "Неуспешно извличане на прогноза.")
 
     return {
