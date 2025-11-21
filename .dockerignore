@@ -3,6 +3,7 @@ __pycache__/
 *.pkl
 .env
 .git
-data/
+data/*
+!data/tag_spec.csv
 logs/
 *.log
