@@ -115,7 +115,7 @@ def _render_frontend_page() -> str:
             }
 
             .page {
-                max-width: 1200px;
+                max-width: 1400px;
                 margin: 0 auto;
                 padding: 32px 16px 48px;
             }
@@ -183,13 +183,30 @@ def _render_frontend_page() -> str:
                 border-radius: 16px;
                 box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
                 margin-top: 20px;
+                box-sizing: border-box;
             }
 
             .chart-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-                gap: 20px;
-                align-items: stretch;
+                grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+                gap: 24px;
+                align-items: start;
+            }
+
+            .chart-card {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .chart-area {
+                position: relative;
+                width: 100%;
+                height: 360px;
+            }
+
+            canvas {
+                width: 100% !important;
+                height: 100% !important;
             }
 
             h3 {
@@ -221,21 +238,21 @@ def _render_frontend_page() -> str:
             </form>
 
             <div class=\"chart-grid\">
-                <div class=\"card\">
+                <div class=\"card chart-card\">
                     <h3>Прогноз за радиация (чисто небе)</h3>
-                    <canvas id=\"radiation-chart\" height=\"200\"></canvas>
+                    <div class=\"chart-area\"><canvas id=\"radiation-chart\" height=\"200\"></canvas></div>
                 </div>
-                <div class=\"card\">
+                <div class=\"card chart-card\">
                     <h3>Прогнозна мощност при чисто небе</h3>
-                    <canvas id=\"clearsky-power-chart\" height=\"200\"></canvas>
+                    <div class=\"chart-area\"><canvas id=\"clearsky-power-chart\" height=\"200\"></canvas></div>
                 </div>
-                <div class=\"card\">
+                <div class=\"card chart-card\">
                     <h3>Температура и облачност</h3>
-                    <canvas id=\"weather-chart\" height=\"200\"></canvas>
+                    <div class=\"chart-area\"><canvas id=\"weather-chart\" height=\"200\"></canvas></div>
                 </div>
-                <div class=\"card\">
+                <div class=\"card chart-card\">
                     <h3>Прогнозна мощност с метео корекции</h3>
-                    <canvas id=\"power-chart\" height=\"200\"></canvas>
+                    <div class=\"chart-area\"><canvas id=\"power-chart\" height=\"200\"></canvas></div>
                 </div>
             </div>
             <div class=\"status\" id=\"status\">Заредете данните, за да видите графиките.</div>
