@@ -5,8 +5,6 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-import json
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -79,9 +77,6 @@ def _get_default_tag() -> Optional[str]:
 
 
 def _render_frontend_page() -> str:
-    tags = list_available_tags()
-    tags_json = json.dumps(tags)
-
     return f"""
     <!DOCTYPE html>
     <html lang=\"bg\">
@@ -218,7 +213,6 @@ def _render_frontend_page() -> str:
         </div>
 
         <script>
-            const tagOptions = {tags_json};
             const tagSelect = document.getElementById('tag-select');
             const dateInput = document.getElementById('date-input');
             const form = document.getElementById('predict-form');
@@ -227,7 +221,7 @@ def _render_frontend_page() -> str:
             const testStatusEl = document.getElementById('test-status');
             let chartInstance = null;
 
-            function populateTags() {{
+            function populateTags(tagOptions) {{
                 tagSelect.innerHTML = '';
                 if (!tagOptions.length) {{
                     const opt = document.createElement('option');
@@ -247,6 +241,36 @@ def _render_frontend_page() -> str:
                     tagSelect.appendChild(opt);
                 }});
             }}
+
+            async function loadTags() {{
+                tagSelect.innerHTML = '';
+                const loadingOption = document.createElement('option');
+                loadingOption.textContent = 'Зареждане на обекти...';
+                loadingOption.disabled = true;
+                loadingOption.selected = true;
+                tagSelect.appendChild(loadingOption);
+                submitBtn.disabled = true;
+
+                try {{
+                    const response = await fetch('/tags');
+                    if (!response.ok) {{
+                        throw new Error('Неуспешно зареждане на списъка с тагове');
+                    }}
+                    const payload = await response.json();
+                    const tagOptions = Array.isArray(payload.tags) ? payload.tags : [];
+                    populateTags(tagOptions);
+                    submitBtn.disabled = tagOptions.length === 0;
+                }} catch (err) {{
+                    console.error(err);
+                    tagSelect.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.textContent = err.message;
+                    opt.disabled = true;
+                    opt.selected = true;
+                    tagSelect.appendChild(opt);
+                    submitBtn.disabled = true;
+                }}
+            }
 
             function setLoading(isLoading) {{
                 submitBtn.disabled = isLoading;
@@ -334,7 +358,7 @@ def _render_frontend_page() -> str:
             }});
 
             (function init() {{
-                populateTags();
+                loadTags();
                 const today = new Date().toISOString().slice(0, 10);
                 dateInput.value = today;
             }})();
@@ -367,6 +391,12 @@ def _render_frontend_page() -> str:
 @app.get("/", response_class=HTMLResponse)
 def home():
     return _render_frontend_page()
+
+
+@app.get("/tags")
+def list_tags():
+    tags = list_available_tags()
+    return {"tags": tags, "count": len(tags)}
 
 
 @app.post("/predict")
