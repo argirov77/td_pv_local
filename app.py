@@ -88,7 +88,12 @@ def predict(request: PredictRequest):
         raise HTTPException(400, "Липсват координати (latitude/longitude) в спецификацията.")
 
     tilt = float(spec.get("tilt", 0.0) or 0.0)
+    if not math.isfinite(tilt):
+        tilt = 0.0
+
     azimuth = float(spec.get("azimuth", 180.0) or 180.0)
+    if not math.isfinite(azimuth):
+        azimuth = 180.0
     mlen = spec.get("module_length") or spec.get("module_height")
     mwid = spec.get("module_width")
     meff_pct = float(spec.get("module_efficiency", 17.7) or 17.7)
@@ -122,6 +127,8 @@ def predict(request: PredictRequest):
         if not weather:
             raise HTTPException(502, "Грешка при вземане на прогноза от WeatherAPI")
 
+        weather_tz = weather.get("tz") or "UTC"
+
         for t, temp_c, cloud in zip(weather["time"], weather["temp_c"], weather["cloud"]):
             dt = datetime.strptime(t, "%Y-%m-%d %H:%M")
             irr = calculate_panel_irradiance(
@@ -130,7 +137,7 @@ def predict(request: PredictRequest):
                 dt=dt,
                 panel_tilt=tilt,
                 panel_azimuth=azimuth,
-                tz="Europe/Nicosia",
+                tz=weather_tz,
             )
 
             eff = 0.0 if irr < THRESHOLD_RADIATION else irr
@@ -168,9 +175,12 @@ def predict(request: PredictRequest):
 
         return series
 
-    weather_history = extract_weather_history(float(lat), float(lon), forecast_date)
-    if not weather_history:
+    weather_history_payload = extract_weather_history(float(lat), float(lon), forecast_date)
+    if not weather_history_payload:
         raise HTTPException(404, "Няма метео-данни за този обект/дата.")
+
+    weather_tz = weather_history_payload.get("tz") or "UTC"
+    weather_history = weather_history_payload.get("records", [])
 
     model_name = tag.replace("/", "_") + "_model.pkl"
     model = load_model(model_name)
@@ -188,7 +198,7 @@ def predict(request: PredictRequest):
             dt=dt,
             panel_tilt=tilt,
             panel_azimuth=azimuth,
-            tz="Europe/Nicosia",
+            tz=weather_tz,
         )
 
         if irr < THRESHOLD_RADIATION:
