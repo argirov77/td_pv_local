@@ -1,7 +1,7 @@
 import logging
 import os
 from functools import lru_cache
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -60,3 +60,23 @@ def get_tag_specification(topic: str) -> Optional[Dict]:
     record = matches.iloc[0].to_dict()
     record = _coerce_types(record)
     return record
+
+
+def list_available_tags() -> List[Dict[str, str]]:
+    df = _load_spec_df()
+    if df.empty:
+        return []
+
+    if "tag" not in df.columns:
+        logger.error("Specification file missing required 'tag' column")
+        return []
+
+    tag_type_col = "tag_type" if "tag_type" in df.columns else None
+    records = []
+    for _, row in df.iterrows():
+        entry = {"tag": str(row["tag"])}
+        if tag_type_col:
+            entry["tag_type"] = str(row[tag_type_col])
+        records.append(entry)
+
+    return records

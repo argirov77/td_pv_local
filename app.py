@@ -5,13 +5,16 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+import json
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from model_loader import load_model
 from production import calculate_power_from_radiation
 from radiation import calculate_clearsky_poa
-from tag_spec_loader import get_tag_specification
+from tag_spec_loader import get_tag_specification, list_available_tags
 from weather_api import fetch_weather_forecast
 
 load_dotenv()
@@ -66,6 +69,265 @@ def _build_feature_frame(weather: pd.DataFrame, poa: pd.Series, model) -> Option
             features[name] = 0.0
 
     return features[list(feature_names)]
+
+
+def _render_frontend_page() -> str:
+    tags = list_available_tags()
+    tags_json = json.dumps(tags)
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang=\"ru\">
+    <head>
+        <meta charset=\"UTF-8\" />
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+        <title>Прогноз производства</title>
+        <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />
+        <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />
+        <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap\" rel=\"stylesheet\" />
+        <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>
+        <style>
+            :root {{
+                color-scheme: light;
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            }}
+
+            body {{
+                background: #f4f6fb;
+                margin: 0;
+                padding: 0;
+                color: #1f2933;
+            }}
+
+            .page {{
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 32px 16px 48px;
+            }}
+
+            h1 {{
+                font-size: 28px;
+                margin-bottom: 16px;
+            }}
+
+            p.helper {{
+                color: #5f6b7a;
+                margin-top: 0;
+                margin-bottom: 24px;
+            }}
+
+            form {{
+                background: #fff;
+                padding: 20px;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 16px;
+                align-items: end;
+            }}
+
+            label {{
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                font-weight: 600;
+                font-size: 14px;
+            }}
+
+            select, input[type=date] {{
+                padding: 10px 12px;
+                border-radius: 10px;
+                border: 1px solid #d6d9e0;
+                font-size: 14px;
+            }}
+
+            button {{
+                padding: 12px 16px;
+                border: none;
+                border-radius: 10px;
+                background: #2563eb;
+                color: #fff;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.15s ease;
+            }}
+
+            button:disabled {{
+                opacity: 0.6;
+                cursor: not-allowed;
+            }}
+
+            button:hover:not(:disabled) {{
+                background: #1d4ed8;
+            }}
+
+            .card {{
+                background: #fff;
+                padding: 20px;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
+                margin-top: 20px;
+            }}
+
+            .status {{
+                margin-top: 12px;
+                color: #5f6b7a;
+                font-size: 14px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class=\"page\">
+            <h1>Прогноз производства</h1>
+            <p class=\"helper\">Выберите объект и дату, чтобы получить почасовой график прогнозируемой мощности.</p>
+            <form id=\"predict-form\">
+                <label>
+                    Объект
+                    <select id=\"tag-select\" required></select>
+                </label>
+                <label>
+                    Дата
+                    <input id=\"date-input\" type=\"date\" required />
+                </label>
+                <button type=\"submit\" id=\"submit-btn\">Показать прогноз</button>
+            </form>
+
+            <div class=\"card\">
+                <canvas id=\"chart\" height=\"120\"></canvas>
+                <div class=\"status\" id=\"status\">Загрузите данные, чтобы увидеть график.</div>
+            </div>
+        </div>
+
+        <script>
+            const tagOptions = {tags_json};
+            const tagSelect = document.getElementById('tag-select');
+            const dateInput = document.getElementById('date-input');
+            const form = document.getElementById('predict-form');
+            const statusEl = document.getElementById('status');
+            const submitBtn = document.getElementById('submit-btn');
+            let chartInstance = null;
+
+            function populateTags() {{
+                tagSelect.innerHTML = '';
+                if (!tagOptions.length) {{
+                    const opt = document.createElement('option');
+                    opt.textContent = 'Нет доступных объектов';
+                    opt.disabled = true;
+                    opt.selected = true;
+                    tagSelect.appendChild(opt);
+                    submitBtn.disabled = true;
+                    return;
+                }}
+
+                tagOptions.forEach((item) => {{
+                    const opt = document.createElement('option');
+                    const type = item.tag_type ? ' (' + item.tag_type + ')' : '';
+                    opt.value = item.tag;
+                    opt.textContent = item.tag + type;
+                    tagSelect.appendChild(opt);
+                }});
+            }}
+
+            function setLoading(isLoading) {{
+                submitBtn.disabled = isLoading;
+                submitBtn.textContent = isLoading ? 'Загрузка...' : 'Показать прогноз';
+            }}
+
+            function updateChart(data) {{
+                const labels = data.map((p) => p.time);
+                const values = data.map((p) => p.power_kw);
+
+                const ctx = document.getElementById('chart').getContext('2d');
+                if (chartInstance) {{
+                    chartInstance.destroy();
+                }}
+
+                chartInstance = new Chart(ctx, {{
+                    type: 'line',
+                    data: {{
+                        labels,
+                        datasets: [{{
+                            label: 'Прогноз мощности (кВт)',
+                            data: values,
+                            fill: true,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            tension: 0.25,
+                            pointRadius: 2,
+                        }}],
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {{
+                            legend: {{ display: true }},
+                        }},
+                        scales: {{
+                            x: {{
+                                ticks: {{ maxRotation: 45, minRotation: 45 }},
+                            }},
+                            y: {{ beginAtZero: true, title: {{ display: true, text: 'кВт' }} }},
+                        }},
+                    }},
+                }});
+            }}
+
+            form.addEventListener('submit', async (event) => {{
+                event.preventDefault();
+                const tag = tagSelect.value;
+                const prediction_date = dateInput.value;
+
+                if (!tag || !prediction_date) {{
+                    statusEl.textContent = 'Укажите объект и дату.';
+                    return;
+                }}
+
+                setLoading(true);
+                statusEl.textContent = 'Запрос прогноза...';
+
+                try {{
+                    const response = await fetch('/predict', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ topic: tag, prediction_date }}),
+                    }});
+
+                    if (!response.ok) {{
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Не удалось получить прогноз');
+                    }}
+
+                    const data = await response.json();
+                    if (!Array.isArray(data) || data.length === 0) {{
+                        statusEl.textContent = 'Данные отсутствуют для выбранных параметров.';
+                        return;
+                    }}
+
+                    statusEl.textContent = 'Получено ' + data.length + ' точек. График показывает почасовой прогноз.';
+                    updateChart(data);
+                }} catch (err) {{
+                    console.error(err);
+                    statusEl.textContent = err.message;
+                }} finally {{
+                    setLoading(false);
+                }}
+            }});
+
+            (function init() {{
+                populateTags();
+                const today = new Date().toISOString().slice(0, 10);
+                dateInput.value = today;
+            }})();
+        </script>
+    </body>
+    </html>
+    """
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return _render_frontend_page()
 
 
 @app.post("/predict")
