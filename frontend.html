@@ -74,9 +74,15 @@
             box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
             margin-top: 20px;
         }
-        .chart-area { position: relative; width: 100%; height: 420px; }
+        .chart-area { position: relative; width: 100%; height: 260px; }
         canvas { width: 100% !important; height: 100% !important; }
         .status { margin-top: 12px; color: #5f6b7a; font-size: 14px; }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .chart-block h4 { margin: 0 0 8px 0; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -104,9 +110,30 @@
         </form>
 
         <div class="card">
-            <h3 style="margin-top: 0;">Прогнозна мощност</h3>
-            <div class="chart-area"><canvas id="power-chart"></canvas></div>
-            <div class="status" id="status">Заредете данните, за да видите графиката.</div>
+            <h3 style="margin-top: 0;">Прогнозни графики</h3>
+            <div class="charts-grid">
+                <div class="chart-block">
+                    <h4>Радиация (чисто небе)</h4>
+                    <div class="chart-area"><canvas id="radiation-chart"></canvas></div>
+                </div>
+                <div class="chart-block">
+                    <h4>Облачност (%)</h4>
+                    <div class="chart-area"><canvas id="cloud-chart"></canvas></div>
+                </div>
+                <div class="chart-block">
+                    <h4>Температура (°C)</h4>
+                    <div class="chart-area"><canvas id="temperature-chart"></canvas></div>
+                </div>
+                <div class="chart-block">
+                    <h4>Производство при идеални условия (W)</h4>
+                    <div class="chart-area"><canvas id="ideal-chart"></canvas></div>
+                </div>
+                <div class="chart-block">
+                    <h4>Прогнозна мощност (с облаци и температура)</h4>
+                    <div class="chart-area"><canvas id="power-chart"></canvas></div>
+                </div>
+            </div>
+            <div class="status" id="status">Заредете данните, за да видите графиките.</div>
             <div id="table-wrapper"></div>
         </div>
     </div>
@@ -118,7 +145,13 @@
         const statusEl = document.getElementById('status');
         const submitBtn = document.getElementById('submit-btn');
         const tableWrapper = document.getElementById('table-wrapper');
-        let powerChart = null;
+        const chartRefs = {
+            radiation: null,
+            cloud: null,
+            temperature: null,
+            ideal_power: null,
+            predicted_power: null,
+        };
 
         function setLoading(isLoading) {
             submitBtn.disabled = isLoading;
@@ -175,19 +208,22 @@
             }
         }
 
-        function renderChart(labels, values) {
-            const ctx = document.getElementById('power-chart').getContext('2d');
-            if (powerChart) powerChart.destroy();
-            powerChart = new Chart(ctx, {
+        function renderLineChart({ canvasId, label, labels, data, color, yLabel, key }) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const refKey = key || canvasId;
+            if (chartRefs[refKey]) {
+                chartRefs[refKey].destroy();
+            }
+            chartRefs[refKey] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Прогнозна мощност (W)',
-                        data: values,
+                        label,
+                        data,
                         fill: true,
-                        borderColor: '#2563eb',
-                        backgroundColor: '#2563eb1a',
+                        borderColor: color,
+                        backgroundColor: color + '22',
                         tension: 0.25,
                         pointRadius: 1.5,
                     }],
@@ -197,23 +233,81 @@
                     maintainAspectRatio: false,
                     scales: {
                         x: { ticks: { maxRotation: 45, minRotation: 45 } },
-                        y: { beginAtZero: true, title: { display: true, text: 'W' } },
+                        y: { beginAtZero: true, title: { display: !!yLabel, text: yLabel || '' } },
                     },
                 },
             });
         }
 
-        function renderTable(data) {
-            if (!Array.isArray(data) || !data.length) {
+        function renderCharts(payload) {
+            const labels = payload.time || [];
+            renderLineChart({
+                canvasId: 'radiation-chart',
+                label: 'Радиация W/m²',
+                key: 'radiation',
+                labels,
+                data: payload.radiation || [],
+                color: '#f59e0b',
+                yLabel: 'W/m²',
+            });
+            renderLineChart({
+                canvasId: 'cloud-chart',
+                label: 'Облачност (%)',
+                key: 'cloud',
+                labels,
+                data: payload.cloud || [],
+                color: '#64748b',
+                yLabel: '%',
+            });
+            renderLineChart({
+                canvasId: 'temperature-chart',
+                label: 'Температура (°C)',
+                key: 'temperature',
+                labels,
+                data: payload.temperature || [],
+                color: '#ef4444',
+                yLabel: '°C',
+            });
+            renderLineChart({
+                canvasId: 'ideal-chart',
+                label: 'Идеално производство (W)',
+                key: 'ideal_power',
+                labels,
+                data: payload.ideal_power || [],
+                color: '#22c55e',
+                yLabel: 'W',
+            });
+            renderLineChart({
+                canvasId: 'power-chart',
+                label: 'Прогнозна мощност (W)',
+                key: 'predicted_power',
+                labels,
+                data: payload.predicted_power || [],
+                color: '#2563eb',
+                yLabel: 'W',
+            });
+        }
+
+        function renderTable(payload) {
+            const labels = payload.time || [];
+            const rowsCount = labels.length;
+            if (!rowsCount) {
                 tableWrapper.innerHTML = '';
                 return;
             }
-            const rows = data
-                .map((row) => `<tr><td>${row.x}</td><td>${row.y ?? '—'}</td></tr>`)
+            const rows = labels
+                .map((time, idx) => {
+                    const radiation = payload.radiation?.[idx] ?? '—';
+                    const cloud = payload.cloud?.[idx] ?? '—';
+                    const temp = payload.temperature?.[idx] ?? '—';
+                    const ideal = payload.ideal_power?.[idx] ?? '—';
+                    const predicted = payload.predicted_power?.[idx] ?? '—';
+                    return `<tr><td>${time}</td><td>${radiation}</td><td>${cloud}</td><td>${temp}</td><td>${ideal}</td><td>${predicted}</td></tr>`;
+                })
                 .join('');
             tableWrapper.innerHTML = `
                 <table>
-                    <thead><tr><th>Време</th><th>Мощност (W)</th></tr></thead>
+                    <thead><tr><th>Време</th><th>Радиация</th><th>Облачност (%)</th><th>Температура (°C)</th><th>Идеално производство (W)</th><th>Прогнозна мощност (W)</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
@@ -244,21 +338,20 @@
                 }
 
                 const data = await response.json();
-                if (!Array.isArray(data) || !data.length) {
+                const pointsCount = Array.isArray(data.time) ? data.time.length : 0;
+                if (!pointsCount) {
                     statusEl.textContent = 'Няма данни за избраните параметри.';
-                    renderTable([]);
+                    renderTable({ time: [] });
                     return;
                 }
 
-                const labels = data.map((p) => p.x);
-                const values = data.map((p) => p.y ?? 0);
-                renderChart(labels, values);
+                renderCharts(data);
                 renderTable(data);
-                statusEl.textContent = `Получени са ${data.length} точки.`;
+                statusEl.textContent = `Получени са ${pointsCount} точки.`;
             } catch (err) {
                 console.error(err);
                 statusEl.textContent = err.message;
-                renderTable([]);
+                renderTable({ time: [] });
             } finally {
                 setLoading(false);
             }
