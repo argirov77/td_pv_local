@@ -11,8 +11,13 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-WEATHER_API_URL = os.getenv("WEATHER_API_URL", "https://api.weatherapi.com/v1/forecast.json")
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY", "0d8ab490dd584b518ee91719252111")
+FORECAST_API_URL = os.getenv(
+    "WEATHER_API_URL", "https://api.weatherapi.com/v1/forecast.json"
+)
+HISTORY_API_URL = os.getenv(
+    "WEATHER_HISTORY_API_URL", "https://api.weatherapi.com/v1/history.json"
+)
 
 
 def _resample_to_quarter_hour(df: pd.DataFrame) -> pd.DataFrame:
@@ -44,6 +49,8 @@ def fetch_weather_forecast(latitude: float, longitude: float, target_date: date)
         logger.error("WEATHER_API_KEY is not set")
         return None
 
+    api_url = FORECAST_API_URL if target_date >= date.today() else HISTORY_API_URL
+
     params = {
         "key": WEATHER_API_KEY,
         "q": f"{latitude},{longitude}",
@@ -53,7 +60,7 @@ def fetch_weather_forecast(latitude: float, longitude: float, target_date: date)
     }
 
     try:
-        response = requests.get(WEATHER_API_URL, params=params, timeout=15)
+        response = requests.get(api_url, params=params, timeout=15)
         response.raise_for_status()
     except requests.RequestException as exc:
         logger.error("Weather API request failed: %s", exc)
