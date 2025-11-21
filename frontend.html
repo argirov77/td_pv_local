@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+    <html lang="bg">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Прогноза за производство</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            :root {
+                color-scheme: light;
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            }
+
+            body {
+                background: #f4f6fb;
+                margin: 0;
+                padding: 0;
+                color: #1f2933;
+            }
+
+            .page {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 32px 16px 48px;
+            }
+
+            h1 {
+                font-size: 28px;
+                margin-bottom: 16px;
+            }
+
+            p.helper {
+                color: #5f6b7a;
+                margin-top: 0;
+                margin-bottom: 24px;
+            }
+
+            form {
+                background: #fff;
+                padding: 20px;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 16px;
+                align-items: end;
+            }
+
+            label {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            select, input[type=date] {
+                padding: 10px 12px;
+                border-radius: 10px;
+                border: 1px solid #d6d9e0;
+                font-size: 14px;
+            }
+
+            button {
+                padding: 12px 16px;
+                border: none;
+                border-radius: 10px;
+                background: #2563eb;
+                color: #fff;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.15s ease;
+            }
+
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            button:hover:not(:disabled) {
+                background: #1d4ed8;
+            }
+
+            .card {
+                background: #fff;
+                padding: 20px;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
+                margin-top: 20px;
+                box-sizing: border-box;
+            }
+
+            .chart-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+                gap: 24px;
+                align-items: start;
+            }
+
+            .chart-card {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .chart-area {
+                position: relative;
+                width: 100%;
+                height: 360px;
+            }
+
+            canvas {
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            h3 {
+                margin-top: 0;
+                margin-bottom: 12px;
+            }
+
+            .status {
+                margin-top: 12px;
+                color: #5f6b7a;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <h1>Прогноза за производство</h1>
+            <p class="helper">Изберете обект и дата, за да получите почасова графика на прогнозираната мощност.</p>
+            <form id="predict-form">
+                <label>
+                    Обект
+                    <select id="tag-select" required></select>
+                </label>
+                <label>
+                    Дата
+                    <input id="date-input" type="date" required />
+                </label>
+                <button type="submit" id="submit-btn">Покажи прогноза</button>
+            </form>
+
+            <div class="chart-grid">
+                <div class="card chart-card">
+                    <h3>Прогноз за радиация (чисто небе)</h3>
+                    <div class="chart-area"><canvas id="radiation-chart" height="200"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Прогнозна мощност при чисто небе</h3>
+                    <div class="chart-area"><canvas id="clearsky-power-chart" height="200"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Температура и облачност</h3>
+                    <div class="chart-area"><canvas id="weather-chart" height="200"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Прогнозна мощност с метео корекции</h3>
+                    <div class="chart-area"><canvas id="power-chart" height="200"></canvas></div>
+                </div>
+            </div>
+            <div class="status" id="status">Заредете данните, за да видите графиките.</div>
+            
+            <div class="card">
+                <h3 style="margin-top: 0;">Тестови проверки</h3>
+                <p class="helper" style="margin-bottom: 12px;">Проверете връзката към таговете, метео API и заредения модел.</p>
+                <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                    <button type="button" id="test-tags">Провери тагове</button>
+                    <button type="button" id="test-weather">Провери Weather API</button>
+                    <button type="button" id="test-model">Провери модел</button>
+                </div>
+                <div class="status" id="test-status" style="margin-top: 12px;">Натиснете бутон, за да стартира тест.</div>
+            </div>
+        </div>
+
+        <script>
+            const tagSelect = document.getElementById('tag-select');
+            const dateInput = document.getElementById('date-input');
+            const form = document.getElementById('predict-form');
+            const statusEl = document.getElementById('status');
+            const submitBtn = document.getElementById('submit-btn');
+            const testStatusEl = document.getElementById('test-status');
+            const charts = {};
+
+            function populateTags(tagOptions) {
+                tagSelect.innerHTML = '';
+                if (!tagOptions.length) {
+                    const opt = document.createElement('option');
+                    opt.textContent = 'Няма налични обекти';
+                    opt.disabled = true;
+                    opt.selected = true;
+                    tagSelect.appendChild(opt);
+                    submitBtn.disabled = true;
+                    return;
+                }
+
+                tagOptions.forEach((item) => {
+                    const opt = document.createElement('option');
+                    const type = item.tag_type ? ' (' + item.tag_type + ')' : '';
+                    opt.value = item.tag;
+                    opt.textContent = item.tag + type;
+                    tagSelect.appendChild(opt);
+                });
+            }
+
+            async function loadTags() {
+                tagSelect.innerHTML = '';
+                const loadingOption = document.createElement('option');
+                loadingOption.textContent = 'Зареждане на обекти...';
+                loadingOption.disabled = true;
+                loadingOption.selected = true;
+                tagSelect.appendChild(loadingOption);
+                submitBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/tags');
+                    if (!response.ok) {
+                        throw new Error('Неуспешно зареждане на списъка с тагове');
+                    }
+                    const payload = await response.json();
+                    const tagOptions = Array.isArray(payload.tags) ? payload.tags : [];
+                    populateTags(tagOptions);
+                    submitBtn.disabled = tagOptions.length === 0;
+                } catch (err) {
+                    console.error(err);
+                    tagSelect.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.textContent = err.message;
+                    opt.disabled = true;
+                    opt.selected = true;
+                    tagSelect.appendChild(opt);
+                    submitBtn.disabled = true;
+                }
+            }
+
+            function setLoading(isLoading) {
+                submitBtn.disabled = isLoading;
+                submitBtn.textContent = isLoading ? 'Зареждане...' : 'Покажи прогноза';
+            }
+
+            function destroyChart(id) {
+                if (charts[id]) {
+                    charts[id].destroy();
+                    delete charts[id];
+                }
+            }
+
+            function renderLineChart({ id, labels, datasetLabel, data, color, yTitle, fillArea = true }) {
+                const ctx = document.getElementById(id).getContext('2d');
+                destroyChart(id);
+
+                charts[id] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: datasetLabel,
+                                data,
+                                fill: fillArea,
+                                borderColor: color,
+                                backgroundColor: fillArea ? `${color}1a` : 'transparent',
+                                tension: 0.25,
+                                pointRadius: 2,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true } },
+                        scales: {
+                            x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                            y: { beginAtZero: true, title: { display: true, text: yTitle } },
+                        },
+                    },
+                });
+            }
+
+            function renderWeatherChart(labels, temps, clouds) {
+                const ctx = document.getElementById('weather-chart').getContext('2d');
+                destroyChart('weather-chart');
+
+                charts['weather-chart'] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Температура (°C)',
+                                data: temps,
+                                borderColor: '#ef4444',
+                                backgroundColor: '#ef44441a',
+                                yAxisID: 'temp',
+                                tension: 0.25,
+                                pointRadius: 2,
+                                fill: true,
+                            },
+                            {
+                                label: 'Облачност (%)',
+                                data: clouds,
+                                borderColor: '#6b7280',
+                                backgroundColor: '#6b72801a',
+                                yAxisID: 'cloud',
+                                tension: 0.25,
+                                pointRadius: 2,
+                                fill: true,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true } },
+                        scales: {
+                            x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                            temp: {
+                                type: 'linear',
+                                position: 'left',
+                                title: { display: true, text: 'Температура (°C)' },
+                            },
+                            cloud: {
+                                type: 'linear',
+                                position: 'right',
+                                title: { display: true, text: 'Облачност (%)' },
+                                suggestedMin: 0,
+                                suggestedMax: 100,
+                                grid: { drawOnChartArea: false },
+                            },
+                        },
+                    },
+                });
+            }
+
+            function updateCharts(data) {
+                const labels = data.map((p) => p.time);
+                const clearskyRadiation = data.map((p) => p.radiation_poa_w_m2 ?? 0);
+                const clearskyPower = data.map((p) => p.clearsky_power_kw ?? p.power_kw ?? 0);
+                const adjustedPower = data.map((p) => p.power_kw ?? 0);
+                const temps = data.map((p) => p.temp_c ?? 0);
+                const clouds = data.map((p) => p.cloud ?? 0);
+
+                renderLineChart({
+                    id: 'radiation-chart',
+                    labels,
+                    datasetLabel: 'Радиация на панела (Вт/м²)',
+                    data: clearskyRadiation,
+                    color: '#f59e0b',
+                    yTitle: 'Вт/м²',
+                });
+
+                renderLineChart({
+                    id: 'clearsky-power-chart',
+                    labels,
+                    datasetLabel: 'Мощност при чисто небе (кВт)',
+                    data: clearskyPower,
+                    color: '#22c55e',
+                    yTitle: 'кВт',
+                });
+
+                renderWeatherChart(labels, temps, clouds);
+
+                renderLineChart({
+                    id: 'power-chart',
+                    labels,
+                    datasetLabel: 'Прогнозна мощност с корекции (кВт)',
+                    data: adjustedPower,
+                    color: '#2563eb',
+                    yTitle: 'кВт',
+                });
+            }
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const tag = tagSelect.value;
+                const prediction_date = dateInput.value;
+
+                if (!tag || !prediction_date) {
+                    statusEl.textContent = 'Посочете обект и дата.';
+                    return;
+                }
+
+                setLoading(true);
+                statusEl.textContent = 'Заявка за прогноза...';
+
+                try {
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topic: tag, prediction_date }),
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Неуспешно получаване на прогноза');
+                    }
+
+                    const data = await response.json();
+                    if (!Array.isArray(data) || data.length === 0) {
+                        statusEl.textContent = 'Няма данни за избраните параметри.';
+                        return;
+                    }
+
+                    statusEl.textContent = 'Получени са ' + data.length + ' точки. Графиките показват почасова прогноза.';
+                    updateCharts(data);
+                } catch (err) {
+                    console.error(err);
+                    statusEl.textContent = err.message;
+                } finally {
+                    setLoading(false);
+                }
+            });
+
+            (function init() {
+                loadTags();
+                const today = new Date().toISOString().slice(0, 10);
+                dateInput.value = today;
+            })();
+
+            async function runTest(path, label) {
+                testStatusEl.textContent = `Изпълнява ${label}...`;
+                try {
+                    const response = await fetch(path);
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({ detail: 'Неразпозната грешка' }));
+                        throw new Error(error.detail || 'Неуспешна заявка');
+                    }
+                    const data = await response.json();
+                    testStatusEl.textContent = `${label}: ${data.message || 'Успешно.'}`;
+                } catch (err) {
+                    console.error(err);
+                    testStatusEl.textContent = `${label}: ${err.message}`;
+                }
+            }
+
+            const testTomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const healthWeatherUrl = `/health/weather?lat=42.6977&lon=23.3219&target_date=${testTomorrow}`;
+
+            document.getElementById('test-tags').addEventListener('click', () => runTest('/health/tags', 'Тест тагове'));
+            document.getElementById('test-weather').addEventListener('click', () => runTest(healthWeatherUrl, 'Тест Weather API'));
+            document.getElementById('test-model').addEventListener('click', () => runTest('/health/model', 'Тест модел'));
+        </script>
+    </body>
+    </html>
