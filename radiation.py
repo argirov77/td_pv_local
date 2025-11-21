@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pvlib
+import math
 from pvlib.location import Location
 from typing import Iterable, Union
 
@@ -43,8 +44,11 @@ def calculate_clearsky_poa(
     pd.Series
         POA irradiance in W/m² for each timestamp (nighttime values set to 0).
     """
-    if panel_azimuth is None:
+    if panel_azimuth is None or not math.isfinite(panel_azimuth):
         panel_azimuth = 180.0
+
+    if not math.isfinite(panel_tilt):
+        panel_tilt = 0.0
 
     times = _ensure_datetime_index(time_index, tz)
     site = Location(latitude, longitude, tz=times.tz)

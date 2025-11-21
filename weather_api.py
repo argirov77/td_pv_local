@@ -72,11 +72,14 @@ def get_forecast_by_coords(lat: float, lon: float, forecast_date: date):
         temp_c_15min = [round(val, 1) if val is not None else None for val in temp_c_15min]
         cloud_15min = [int(round(val)) if val is not None else None for val in cloud_15min]
 
+        tz = data.get("location", {}).get("tz_id")
+
         return {
             "date": date_str,
             "location": data.get("location", {}).get("name"),
             "lat": lat,
             "lon": lon,
+            "tz": tz,
             "time": time_15min,
             "temp_c": temp_c_15min,
             "cloud": cloud_15min,
@@ -86,7 +89,7 @@ def get_forecast_by_coords(lat: float, lon: float, forecast_date: date):
         return None
 
 
-def extract_weather_history(lat: float, lon: float, target_date: date) -> Optional[List[dict]]:
+def extract_weather_history(lat: float, lon: float, target_date: date) -> Optional[dict]:
     if not WEATHER_API_KEY:
         logger.error("WEATHER_API_KEY is not set")
         return None
@@ -107,6 +110,9 @@ def extract_weather_history(lat: float, lon: float, target_date: date) -> Option
         return None
 
     payload = resp.json()
+    location_data = payload.get("location", {})
+    tz = location_data.get("tz_id")
+
     forecast_days = payload.get("forecast", {}).get("forecastday", [])
     if not forecast_days:
         logger.error("Weather history response missing forecast data")
@@ -132,7 +138,8 @@ def extract_weather_history(lat: float, lon: float, target_date: date) -> Option
         return None
 
     df = _resample_to_quarter_hour(df)
-    return df.to_dict(orient="records")
+
+    return {"records": df.to_dict(orient="records"), "tz": tz}
 
 
 # Backward compatibility helpers kept for existing notebooks/endpoints
