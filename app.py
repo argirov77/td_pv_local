@@ -100,7 +100,14 @@ def predict(request: PredictRequest):
         if comm
         else datetime.combine(forecast_date, datetime.min.time())
     )
-    result = []
+    series = {
+        "time": [],
+        "radiation": [],
+        "cloud": [],
+        "temperature": [],
+        "ideal_power": [],
+        "predicted_power": [],
+    }
 
     if forecast_date >= today:
         weather = get_forecast_by_coords(float(lat), float(lon), forecast_date)
@@ -121,9 +128,10 @@ def predict(request: PredictRequest):
             eff = 0.0 if irr < THRESHOLD_RADIATION else irr
             base = eff * panel_area * mod_eff
             temp_c_val = float(temp_c) if temp_c is not None else 25.0
-            cloud_frac = float(cloud) / 100.0 if cloud is not None else 0.0
+            cloud_percent = float(cloud) if cloud is not None else 0.0
+            cloud_frac = cloud_percent / 100.0
 
-            power = calculate_system_production(
+            predicted_power = calculate_system_production(
                 panel_power=base,
                 temp_c=temp_c_val,
                 cloud_cover=cloud_frac,
@@ -133,8 +141,24 @@ def predict(request: PredictRequest):
                 degradation_rate=degr,
             )
 
-            result.append({"x": dt.strftime("%Y-%m-%d %H:%M"), "y": sanitize(power)})
-        return result
+            ideal_power = calculate_system_production(
+                panel_power=base,
+                temp_c=25.0,
+                cloud_cover=0.0,
+                num_panels=int(panels),
+                forecast_date=dt,
+                commissioning_date=commissioning_date,
+                degradation_rate=degr,
+            )
+
+            series["time"].append(dt.strftime("%Y-%m-%d %H:%M"))
+            series["radiation"].append(sanitize(irr))
+            series["cloud"].append(sanitize(cloud_percent))
+            series["temperature"].append(sanitize(temp_c_val))
+            series["ideal_power"].append(sanitize(ideal_power))
+            series["predicted_power"].append(sanitize(predicted_power))
+
+        return series
 
     weather_history = extract_weather_history(float(lat), float(lon), forecast_date)
     if not weather_history:
@@ -175,9 +199,10 @@ def predict(request: PredictRequest):
 
         base = eff * panel_area * mod_eff
         temp_c_val = float(rec.get("temp_c", 25))
-        cloud_frac = float(rec.get("cloud", 0)) / 100.0
+        cloud_percent = float(rec.get("cloud", 0))
+        cloud_frac = cloud_percent / 100.0
 
-        power = calculate_system_production(
+        predicted_power = calculate_system_production(
             panel_power=base,
             temp_c=temp_c_val,
             cloud_cover=cloud_frac,
@@ -187,9 +212,24 @@ def predict(request: PredictRequest):
             degradation_rate=degr,
         )
 
-        result.append({"x": dt.strftime("%Y-%m-%d %H:%M"), "y": sanitize(power)})
+        ideal_power = calculate_system_production(
+            panel_power=base,
+            temp_c=25.0,
+            cloud_cover=0.0,
+            num_panels=int(panels),
+            forecast_date=dt,
+            commissioning_date=commissioning_date,
+            degradation_rate=degr,
+        )
 
-    return result
+        series["time"].append(dt.strftime("%Y-%m-%d %H:%M"))
+        series["radiation"].append(sanitize(irr))
+        series["cloud"].append(sanitize(cloud_percent))
+        series["temperature"].append(sanitize(temp_c_val))
+        series["ideal_power"].append(sanitize(ideal_power))
+        series["predicted_power"].append(sanitize(predicted_power))
+
+    return series
 
 
 @app.get("/weather/forecast")
