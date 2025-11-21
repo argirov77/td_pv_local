@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 from typing import Dict, Optional
 
@@ -76,6 +76,17 @@ def _get_default_tag() -> Optional[str]:
         return None
     logger.info("Selecting default tag from %d available entries", len(available_tags))
     return available_tags[0].get("tag")
+
+
+def _parse_health_target_date(target_date: Optional[str]) -> date:
+    default_date = date.today() + timedelta(days=1)
+    if target_date is None:
+        return default_date
+
+    try:
+        return datetime.strptime(target_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(400, "Невалиден формат на дата. Очаква се YYYY-MM-DD.")
 
 
 def _render_frontend_page() -> str:
@@ -381,8 +392,11 @@ def _render_frontend_page() -> str:
                 }
             }
 
+            const testTomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const healthWeatherUrl = `/health/weather?lat=42.6977&lon=23.3219&target_date=${testTomorrow}`;
+
             document.getElementById('test-tags').addEventListener('click', () => runTest('/health/tags', 'Тест тагове'));
-            document.getElementById('test-weather').addEventListener('click', () => runTest('/health/weather', 'Тест Weather API'));
+            document.getElementById('test-weather').addEventListener('click', () => runTest(healthWeatherUrl, 'Тест Weather API'));
             document.getElementById('test-model').addEventListener('click', () => runTest('/health/model', 'Тест модел'));
         </script>
     </body>
@@ -513,28 +527,41 @@ def health_tags():
 
 
 @app.get("/health/weather")
-def health_weather(tag: Optional[str] = None, target_date: Optional[str] = None):
-    chosen_tag = tag or _get_default_tag()
-    if not chosen_tag:
-        raise HTTPException(503, "Не са намерени тагове за тестване.")
+def health_weather(
+    tag: Optional[str] = None,
+    target_date: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+):
+    forecast_date = _parse_health_target_date(target_date)
 
-    spec = get_tag_specification(chosen_tag)
-    if not spec:
-        raise HTTPException(503, "Липсва спецификация за избрания таг.")
+    if (lat is None) != (lon is None):
+        raise HTTPException(400, "Необходимо е да подадете и latitude, и longitude.")
 
-    lat = spec.get("latitude")
-    lon = spec.get("longitude")
+    chosen_tag = tag or _get_default_tag() if lat is None and lon is None else None
+
     if lat is None or lon is None:
-        raise HTTPException(503, "Спецификацията няма координати.")
+        if not chosen_tag:
+            raise HTTPException(503, "Не са намерени тагове за тестване.")
 
-    try:
-        date_value = datetime.strptime(target_date, "%Y-%m-%d").date() if target_date else date.today()
-    except ValueError:
-        raise HTTPException(400, "Невалиден формат на дата. Очаква се YYYY-MM-DD.")
+        spec = get_tag_specification(chosen_tag)
+        if not spec:
+            raise HTTPException(503, "Липсва спецификация за избрания таг.")
 
-    data = fetch_weather_forecast(float(lat), float(lon), date_value)
+        lat = spec.get("latitude")
+        lon = spec.get("longitude")
+        if lat is None or lon is None:
+            raise HTTPException(503, "Спецификацията няма координати.")
+
+    data = fetch_weather_forecast(float(lat), float(lon), forecast_date)
     if not data:
-        logger.error("Health weather check failed for tag=%s date=%s", chosen_tag, date_value)
+        logger.error(
+            "Health weather check failed for tag=%s date=%s lat=%s lon=%s",
+            chosen_tag,
+            forecast_date,
+            lat,
+            lon,
+        )
         raise HTTPException(502, "Неуспешно извличане на прогноза.")
 
     return {
@@ -542,6 +569,9 @@ def health_weather(tag: Optional[str] = None, target_date: Optional[str] = None)
         "message": f"Получени записи: {len(data)}",
         "sample_time": data[0].get("time") if data else None,
         "tag_used": chosen_tag,
+        "latitude": float(lat),
+        "longitude": float(lon),
+        "target_date": forecast_date.isoformat(),
     }
 
 
