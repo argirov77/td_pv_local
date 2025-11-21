@@ -340,7 +340,7 @@ def _render_frontend_page() -> str:
             }})();
 
             async function runTest(path, label) {{
-                testStatusEl.textContent = `Изпълнява ${label}...`;
+                testStatusEl.textContent = `Изпълнява ${{label}}...`;
                 try {{
                     const response = await fetch(path);
                     if (!response.ok) {{
@@ -348,12 +348,12 @@ def _render_frontend_page() -> str:
                         throw new Error(error.detail || 'Неуспешна заявка');
                     }}
                     const data = await response.json();
-                    testStatusEl.textContent = `${label}: ${data.message || 'Успешно.'}`;
+                    testStatusEl.textContent = `${{label}}: ${{data.message || 'Успешно.'}}`;
                 }} catch (err) {{
                     console.error(err);
-                    testStatusEl.textContent = `${label}: ${err.message}`;
+                    testStatusEl.textContent = `${{label}}: ${{err.message}}`;
                 }}
-            }
+            }}
 
             document.getElementById('test-tags').addEventListener('click', () => runTest('/health/tags', 'Тест тагове'));
             document.getElementById('test-weather').addEventListener('click', () => runTest('/health/weather', 'Тест Weather API'));
