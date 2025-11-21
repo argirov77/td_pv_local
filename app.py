@@ -77,7 +77,7 @@ def _get_default_tag() -> Optional[str]:
 
 
 def _render_frontend_page() -> str:
-    return f"""
+    return """
     <!DOCTYPE html>
     <html lang=\"bg\">
     <head>
@@ -89,36 +89,36 @@ def _render_frontend_page() -> str:
         <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap\" rel=\"stylesheet\" />
         <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>
         <style>
-            :root {{
+            :root {
                 color-scheme: light;
                 font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            }}
+            }
 
-            body {{
+            body {
                 background: #f4f6fb;
                 margin: 0;
                 padding: 0;
                 color: #1f2933;
-            }}
+            }
 
-            .page {{
+            .page {
                 max-width: 1000px;
                 margin: 0 auto;
                 padding: 32px 16px 48px;
-            }}
+            }
 
-            h1 {{
+            h1 {
                 font-size: 28px;
                 margin-bottom: 16px;
-            }}
+            }
 
-            p.helper {{
+            p.helper {
                 color: #5f6b7a;
                 margin-top: 0;
                 margin-bottom: 24px;
-            }}
+            }
 
-            form {{
+            form {
                 background: #fff;
                 padding: 20px;
                 border-radius: 16px;
@@ -127,24 +127,24 @@ def _render_frontend_page() -> str:
                 grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
                 gap: 16px;
                 align-items: end;
-            }}
+            }
 
-            label {{
+            label {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
                 font-weight: 600;
                 font-size: 14px;
-            }}
+            }
 
-            select, input[type=date] {{
+            select, input[type=date] {
                 padding: 10px 12px;
                 border-radius: 10px;
                 border: 1px solid #d6d9e0;
                 font-size: 14px;
-            }}
+            }
 
-            button {{
+            button {
                 padding: 12px 16px;
                 border: none;
                 border-radius: 10px;
@@ -153,30 +153,30 @@ def _render_frontend_page() -> str:
                 font-weight: 600;
                 cursor: pointer;
                 transition: background 0.15s ease;
-            }}
+            }
 
-            button:disabled {{
+            button:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
-            }}
+            }
 
-            button:hover:not(:disabled) {{
+            button:hover:not(:disabled) {
                 background: #1d4ed8;
-            }}
+            }
 
-            .card {{
+            .card {
                 background: #fff;
                 padding: 20px;
                 border-radius: 16px;
                 box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
                 margin-top: 20px;
-            }}
+            }
 
-            .status {{
+            .status {
                 margin-top: 12px;
                 color: #5f6b7a;
                 font-size: 14px;
-            }}
+            }
         </style>
     </head>
     <body>
@@ -221,9 +221,9 @@ def _render_frontend_page() -> str:
             const testStatusEl = document.getElementById('test-status');
             let chartInstance = null;
 
-            function populateTags(tagOptions) {{
+            function populateTags(tagOptions) {
                 tagSelect.innerHTML = '';
-                if (!tagOptions.length) {{
+                if (!tagOptions.length) {
                     const opt = document.createElement('option');
                     opt.textContent = 'Няма налични обекти';
                     opt.disabled = true;
@@ -231,18 +231,18 @@ def _render_frontend_page() -> str:
                     tagSelect.appendChild(opt);
                     submitBtn.disabled = true;
                     return;
-                }}
+                }
 
-                tagOptions.forEach((item) => {{
+                tagOptions.forEach((item) => {
                     const opt = document.createElement('option');
                     const type = item.tag_type ? ' (' + item.tag_type + ')' : '';
                     opt.value = item.tag;
                     opt.textContent = item.tag + type;
                     tagSelect.appendChild(opt);
-                }});
-            }}
+                });
+            }
 
-            async function loadTags() {{
+            async function loadTags() {
                 tagSelect.innerHTML = '';
                 const loadingOption = document.createElement('option');
                 loadingOption.textContent = 'Зареждане на обекти...';
@@ -251,16 +251,16 @@ def _render_frontend_page() -> str:
                 tagSelect.appendChild(loadingOption);
                 submitBtn.disabled = true;
 
-                try {{
+                try {
                     const response = await fetch('/tags');
-                    if (!response.ok) {{
+                    if (!response.ok) {
                         throw new Error('Неуспешно зареждане на списъка с тагове');
-                    }}
+                    }
                     const payload = await response.json();
                     const tagOptions = Array.isArray(payload.tags) ? payload.tags : [];
                     populateTags(tagOptions);
                     submitBtn.disabled = tagOptions.length === 0;
-                }} catch (err) {{
+                } catch (err) {
                     console.error(err);
                     tagSelect.innerHTML = '';
                     const opt = document.createElement('option');
@@ -269,28 +269,28 @@ def _render_frontend_page() -> str:
                     opt.selected = true;
                     tagSelect.appendChild(opt);
                     submitBtn.disabled = true;
-                }}
+                }
             }
 
-            function setLoading(isLoading) {{
+            function setLoading(isLoading) {
                 submitBtn.disabled = isLoading;
                 submitBtn.textContent = isLoading ? 'Зареждане...' : 'Покажи прогноза';
-            }}
+            }
 
-            function updateChart(data) {{
+            function updateChart(data) {
                 const labels = data.map((p) => p.time);
                 const values = data.map((p) => p.power_kw);
 
                 const ctx = document.getElementById('chart').getContext('2d');
-                if (chartInstance) {{
+                if (chartInstance) {
                     chartInstance.destroy();
-                }}
+                }
 
-                chartInstance = new Chart(ctx, {{
+                chartInstance = new Chart(ctx, {
                     type: 'line',
-                    data: {{
+                    data: {
                         labels,
-                        datasets: [{{
+                        datasets: [{
                             label: 'Прогноза за мощност (кВт)',
                             data: values,
                             fill: true,
@@ -298,86 +298,86 @@ def _render_frontend_page() -> str:
                             backgroundColor: 'rgba(37, 99, 235, 0.1)',
                             tension: 0.25,
                             pointRadius: 2,
-                        }}],
-                    }},
-                    options: {{
+                        }],
+                    },
+                    options: {
                         responsive: true,
                         maintainAspectRatio: true,
-                        plugins: {{
-                            legend: {{ display: true }},
-                        }},
-                        scales: {{
-                            x: {{
-                                ticks: {{ maxRotation: 45, minRotation: 45 }},
-                            }},
-                            y: {{ beginAtZero: true, title: {{ display: true, text: 'кВт' }} }},
-                        }},
-                    }},
-                }});
-            }}
+                        plugins: {
+                            legend: { display: true },
+                        },
+                        scales: {
+                            x: {
+                                ticks: { maxRotation: 45, minRotation: 45 },
+                            },
+                            y: { beginAtZero: true, title: { display: true, text: 'кВт' } },
+                        },
+                    },
+                });
+            }
 
-            form.addEventListener('submit', async (event) => {{
+            form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 const tag = tagSelect.value;
                 const prediction_date = dateInput.value;
 
-                if (!tag || !prediction_date) {{
+                if (!tag || !prediction_date) {
                     statusEl.textContent = 'Посочете обект и дата.';
                     return;
-                }}
+                }
 
                 setLoading(true);
                 statusEl.textContent = 'Заявка за прогноза...';
 
-                try {{
-                    const response = await fetch('/predict', {{
+                try {
+                    const response = await fetch('/predict', {
                         method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ topic: tag, prediction_date }}),
-                    }});
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topic: tag, prediction_date }),
+                    });
 
-                    if (!response.ok) {{
+                    if (!response.ok) {
                         const error = await response.json();
                         throw new Error(error.detail || 'Неуспешно получаване на прогноза');
-                    }}
+                    }
 
                     const data = await response.json();
-                    if (!Array.isArray(data) || data.length === 0) {{
+                    if (!Array.isArray(data) || data.length === 0) {
                         statusEl.textContent = 'Няма данни за избраните параметри.';
                         return;
-                    }}
+                    }
 
                     statusEl.textContent = 'Получени са ' + data.length + ' точки. Графиката показва почасова прогноза.';
                     updateChart(data);
-                }} catch (err) {{
+                } catch (err) {
                     console.error(err);
                     statusEl.textContent = err.message;
-                }} finally {{
+                } finally {
                     setLoading(false);
-                }}
-            }});
+                }
+            });
 
-            (function init() {{
+            (function init() {
                 loadTags();
                 const today = new Date().toISOString().slice(0, 10);
                 dateInput.value = today;
-            }})();
+            })();
 
-            async function runTest(path, label) {{
-                testStatusEl.textContent = `Изпълнява ${{label}}...`;
-                try {{
+            async function runTest(path, label) {
+                testStatusEl.textContent = `Изпълнява ${label}...`;
+                try {
                     const response = await fetch(path);
-                    if (!response.ok) {{
-                        const error = await response.json().catch(() => ({{ detail: 'Неразпозната грешка' }}));
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({ detail: 'Неразпозната грешка' }));
                         throw new Error(error.detail || 'Неуспешна заявка');
-                    }}
+                    }
                     const data = await response.json();
-                    testStatusEl.textContent = `${{label}}: ${{data.message || 'Успешно.'}}`;
-                }} catch (err) {{
+                    testStatusEl.textContent = `${label}: ${data.message || 'Успешно.'}`;
+                } catch (err) {
                     console.error(err);
-                    testStatusEl.textContent = `${{label}}: ${{err.message}}`;
-                }}
-            }}
+                    testStatusEl.textContent = `${label}: ${err.message}`;
+                }
+            }
 
             document.getElementById('test-tags').addEventListener('click', () => runTest('/health/tags', 'Тест тагове'));
             document.getElementById('test-weather').addEventListener('click', () => runTest('/health/weather', 'Тест Weather API'));
