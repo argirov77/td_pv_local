@@ -28,12 +28,10 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def _coerce_types(record: Dict) -> Dict:
     record = dict(record)
-    # Normalize expected keys
     if "module_length" not in record and "module_height" in record:
         record["module_length"] = record.get("module_height")
     if "module_width" in record:
         record["module_width"] = record.get("module_width")
-    # Ensure commissioning_date is a simple string (YYYY-MM-DD)
     comm = record.get("commissioning_date")
     if pd.notna(comm):
         record["commissioning_date"] = str(comm)
