@@ -115,7 +115,7 @@ def _render_frontend_page() -> str:
             }
 
             .page {
-                max-width: 1000px;
+                max-width: 1200px;
                 margin: 0 auto;
                 padding: 32px 16px 48px;
             }
@@ -187,8 +187,8 @@ def _render_frontend_page() -> str:
 
             .chart-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                gap: 16px;
+                grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+                gap: 20px;
                 align-items: stretch;
             }
 
@@ -223,19 +223,19 @@ def _render_frontend_page() -> str:
             <div class=\"chart-grid\">
                 <div class=\"card\">
                     <h3>Прогноз за радиация (чисто небе)</h3>
-                    <canvas id=\"radiation-chart\" height=\"120\"></canvas>
+                    <canvas id=\"radiation-chart\" height=\"200\"></canvas>
                 </div>
                 <div class=\"card\">
                     <h3>Прогнозна мощност при чисто небе</h3>
-                    <canvas id=\"clearsky-power-chart\" height=\"120\"></canvas>
+                    <canvas id=\"clearsky-power-chart\" height=\"200\"></canvas>
                 </div>
                 <div class=\"card\">
                     <h3>Температура и облачност</h3>
-                    <canvas id=\"weather-chart\" height=\"120\"></canvas>
+                    <canvas id=\"weather-chart\" height=\"200\"></canvas>
                 </div>
                 <div class=\"card\">
                     <h3>Прогнозна мощност с метео корекции</h3>
-                    <canvas id=\"power-chart\" height=\"120\"></canvas>
+                    <canvas id=\"power-chart\" height=\"200\"></canvas>
                 </div>
             </div>
             <div class=\"status\" id=\"status\">Заредете данните, за да видите графиките.</div>
@@ -346,7 +346,7 @@ def _render_frontend_page() -> str:
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
                         plugins: { legend: { display: true } },
                         scales: {
                             x: { ticks: { maxRotation: 45, minRotation: 45 } },
@@ -389,7 +389,7 @@ def _render_frontend_page() -> str:
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
                         plugins: { legend: { display: true } },
                         scales: {
                             x: { ticks: { maxRotation: 45, minRotation: 45 } },
