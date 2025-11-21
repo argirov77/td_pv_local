@@ -1,13 +1,21 @@
 import logging
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SPEC_PATH = os.getenv("TAG_SPEC_PATH", os.path.join("data", "tag_spec.csv"))
+MODULE_DIR = Path(__file__).resolve().parent
+_env_spec_path = os.getenv("TAG_SPEC_PATH")
+if _env_spec_path:
+    DEFAULT_SPEC_PATH = Path(_env_spec_path)
+    if not DEFAULT_SPEC_PATH.is_absolute():
+        DEFAULT_SPEC_PATH = (Path.cwd() / DEFAULT_SPEC_PATH).resolve()
+else:
+    DEFAULT_SPEC_PATH = MODULE_DIR / "data" / "tag_spec.csv"
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -34,7 +42,7 @@ def _coerce_types(record: Dict) -> Dict:
 
 @lru_cache(maxsize=1)
 def _load_spec_df() -> pd.DataFrame:
-    if not os.path.exists(DEFAULT_SPEC_PATH):
+    if not DEFAULT_SPEC_PATH.exists():
         logger.error("Tag specification file not found: %s", DEFAULT_SPEC_PATH)
         return pd.DataFrame()
     df = pd.read_csv(DEFAULT_SPEC_PATH)
