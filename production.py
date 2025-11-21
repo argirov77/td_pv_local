@@ -64,7 +64,8 @@ def calculate_power_from_radiation(
 ) -> pd.Series:
     """Convert plane-of-array irradiance to AC power (kW) for each timestamp."""
     times = pd.to_datetime(forecast_times)
-    length = len(times)
+    times_series = pd.Series(times)
+    length = len(times_series)
 
     poa_series = _to_series(poa_w_m2, length).astype(float).clip(lower=0)
     temp_series = _to_series(temp_c, length).astype(float)
@@ -74,7 +75,7 @@ def calculate_power_from_radiation(
     temperature_factor = 1 + temp_coefficient * (temp_series - 25)
     temperature_factor = temperature_factor.clip(lower=0)
 
-    years_in_service = (times - pd.to_datetime(commissioning_date)).dt.days / 365.25
+    years_in_service = (times_series - pd.to_datetime(commissioning_date)).dt.days / 365.25
     yearly_degradation = max(float(degradation_rate), 0.0) / 100.0
     degradation_multiplier = (1 - yearly_degradation) ** years_in_service
 
