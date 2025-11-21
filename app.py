@@ -185,6 +185,18 @@ def _render_frontend_page() -> str:
                 margin-top: 20px;
             }
 
+            .chart-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 16px;
+                align-items: stretch;
+            }
+
+            h3 {
+                margin-top: 0;
+                margin-bottom: 12px;
+            }
+
             .status {
                 margin-top: 12px;
                 color: #5f6b7a;
@@ -208,10 +220,25 @@ def _render_frontend_page() -> str:
                 <button type=\"submit\" id=\"submit-btn\">Покажи прогноза</button>
             </form>
 
-            <div class=\"card\">
-                <canvas id=\"chart\" height=\"120\"></canvas>
-                <div class=\"status\" id=\"status\">Заредете данните, за да видите графиката.</div>
+            <div class=\"chart-grid\">
+                <div class=\"card\">
+                    <h3>Прогноз за радиация (чисто небе)</h3>
+                    <canvas id=\"radiation-chart\" height=\"120\"></canvas>
+                </div>
+                <div class=\"card\">
+                    <h3>Прогнозна мощност при чисто небе</h3>
+                    <canvas id=\"clearsky-power-chart\" height=\"120\"></canvas>
+                </div>
+                <div class=\"card\">
+                    <h3>Температура и облачност</h3>
+                    <canvas id=\"weather-chart\" height=\"120\"></canvas>
+                </div>
+                <div class=\"card\">
+                    <h3>Прогнозна мощност с метео корекции</h3>
+                    <canvas id=\"power-chart\" height=\"120\"></canvas>
+                </div>
             </div>
+            <div class=\"status\" id=\"status\">Заредете данните, за да видите графиките.</div>
             
             <div class=\"card\">
                 <h3 style=\"margin-top: 0;\">Тестови проверки</h3>
@@ -232,7 +259,7 @@ def _render_frontend_page() -> str:
             const statusEl = document.getElementById('status');
             const submitBtn = document.getElementById('submit-btn');
             const testStatusEl = document.getElementById('test-status');
-            let chartInstance = null;
+            const charts = {};
 
             function populateTags(tagOptions) {
                 tagSelect.innerHTML = '';
@@ -290,42 +317,135 @@ def _render_frontend_page() -> str:
                 submitBtn.textContent = isLoading ? 'Зареждане...' : 'Покажи прогноза';
             }
 
-            function updateChart(data) {
-                const labels = data.map((p) => p.time);
-                const values = data.map((p) => p.power_kw);
-
-                const ctx = document.getElementById('chart').getContext('2d');
-                if (chartInstance) {
-                    chartInstance.destroy();
+            function destroyChart(id) {
+                if (charts[id]) {
+                    charts[id].destroy();
+                    delete charts[id];
                 }
+            }
 
-                chartInstance = new Chart(ctx, {
+            function renderLineChart({ id, labels, datasetLabel, data, color, yTitle, fillArea = true }) {
+                const ctx = document.getElementById(id).getContext('2d');
+                destroyChart(id);
+
+                charts[id] = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels,
-                        datasets: [{
-                            label: 'Прогноза за мощност (кВт)',
-                            data: values,
-                            fill: true,
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                            tension: 0.25,
-                            pointRadius: 2,
-                        }],
+                        datasets: [
+                            {
+                                label: datasetLabel,
+                                data,
+                                fill: fillArea,
+                                borderColor: color,
+                                backgroundColor: fillArea ? `${color}1a` : 'transparent',
+                                tension: 0.25,
+                                pointRadius: 2,
+                            },
+                        ],
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: true,
-                        plugins: {
-                            legend: { display: true },
-                        },
+                        plugins: { legend: { display: true } },
                         scales: {
-                            x: {
-                                ticks: { maxRotation: 45, minRotation: 45 },
-                            },
-                            y: { beginAtZero: true, title: { display: true, text: 'кВт' } },
+                            x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                            y: { beginAtZero: true, title: { display: true, text: yTitle } },
                         },
                     },
+                });
+            }
+
+            function renderWeatherChart(labels, temps, clouds) {
+                const ctx = document.getElementById('weather-chart').getContext('2d');
+                destroyChart('weather-chart');
+
+                charts['weather-chart'] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Температура (°C)',
+                                data: temps,
+                                borderColor: '#ef4444',
+                                backgroundColor: '#ef44441a',
+                                yAxisID: 'temp',
+                                tension: 0.25,
+                                pointRadius: 2,
+                                fill: true,
+                            },
+                            {
+                                label: 'Облачност (%)',
+                                data: clouds,
+                                borderColor: '#6b7280',
+                                backgroundColor: '#6b72801a',
+                                yAxisID: 'cloud',
+                                tension: 0.25,
+                                pointRadius: 2,
+                                fill: true,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: true } },
+                        scales: {
+                            x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                            temp: {
+                                type: 'linear',
+                                position: 'left',
+                                title: { display: true, text: 'Температура (°C)' },
+                            },
+                            cloud: {
+                                type: 'linear',
+                                position: 'right',
+                                title: { display: true, text: 'Облачност (%)' },
+                                suggestedMin: 0,
+                                suggestedMax: 100,
+                                grid: { drawOnChartArea: false },
+                            },
+                        },
+                    },
+                });
+            }
+
+            function updateCharts(data) {
+                const labels = data.map((p) => p.time);
+                const clearskyRadiation = data.map((p) => p.radiation_poa_w_m2 ?? 0);
+                const clearskyPower = data.map((p) => p.clearsky_power_kw ?? p.power_kw ?? 0);
+                const adjustedPower = data.map((p) => p.power_kw ?? 0);
+                const temps = data.map((p) => p.temp_c ?? 0);
+                const clouds = data.map((p) => p.cloud ?? 0);
+
+                renderLineChart({
+                    id: 'radiation-chart',
+                    labels,
+                    datasetLabel: 'Радиация на панела (Вт/м²)',
+                    data: clearskyRadiation,
+                    color: '#f59e0b',
+                    yTitle: 'Вт/м²',
+                });
+
+                renderLineChart({
+                    id: 'clearsky-power-chart',
+                    labels,
+                    datasetLabel: 'Мощност при чисто небе (кВт)',
+                    data: clearskyPower,
+                    color: '#22c55e',
+                    yTitle: 'кВт',
+                });
+
+                renderWeatherChart(labels, temps, clouds);
+
+                renderLineChart({
+                    id: 'power-chart',
+                    labels,
+                    datasetLabel: 'Прогнозна мощност с корекции (кВт)',
+                    data: adjustedPower,
+                    color: '#2563eb',
+                    yTitle: 'кВт',
                 });
             }
 
@@ -360,8 +480,8 @@ def _render_frontend_page() -> str:
                         return;
                     }
 
-                    statusEl.textContent = 'Получени са ' + data.length + ' точки. Графиката показва почасова прогноза.';
-                    updateChart(data);
+                    statusEl.textContent = 'Получени са ' + data.length + ' точки. Графиките показват почасова прогноза.';
+                    updateCharts(data);
                 } catch (err) {
                     console.error(err);
                     statusEl.textContent = err.message;
@@ -503,6 +623,7 @@ def predict(request: PredictRequest):
             {
                 "time": row["time"],
                 "power_kw": sanitize(float(power_kw.iloc[idx])),
+                "clearsky_power_kw": sanitize(float(ideal_power_kw.iloc[idx])),
                 "temp_c": sanitize(float(row.get("temp_c", 0.0))),
                 "cloud": sanitize(float(row.get("cloud", 0.0))),
                 "radiation_poa_w_m2": sanitize(float(poa.iloc[idx])),
