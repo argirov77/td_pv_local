@@ -239,6 +239,13 @@
             });
         }
 
+        function toNumberSeries(values) {
+            return (values || []).map((val) => {
+                const num = Number(val);
+                return Number.isFinite(num) ? num : 0;
+            });
+        }
+
         function renderCharts(payload) {
             const labels = payload.time || [];
             renderLineChart({
@@ -246,7 +253,7 @@
                 label: 'Радиация W/m²',
                 key: 'radiation',
                 labels,
-                data: payload.radiation || [],
+                data: toNumberSeries(payload.radiation),
                 color: '#f59e0b',
                 yLabel: 'W/m²',
             });
@@ -255,7 +262,7 @@
                 label: 'Облачност (%)',
                 key: 'cloud',
                 labels,
-                data: payload.cloud || [],
+                data: toNumberSeries(payload.cloud),
                 color: '#64748b',
                 yLabel: '%',
             });
@@ -264,7 +271,7 @@
                 label: 'Температура (°C)',
                 key: 'temperature',
                 labels,
-                data: payload.temperature || [],
+                data: toNumberSeries(payload.temperature),
                 color: '#ef4444',
                 yLabel: '°C',
             });
@@ -273,7 +280,7 @@
                 label: 'Идеално производство (W)',
                 key: 'ideal_power',
                 labels,
-                data: payload.ideal_power || [],
+                data: toNumberSeries(payload.ideal_power),
                 color: '#22c55e',
                 yLabel: 'W',
             });
@@ -282,7 +289,7 @@
                 label: 'Прогнозна мощност (W)',
                 key: 'predicted_power',
                 labels,
-                data: payload.predicted_power || [],
+                data: toNumberSeries(payload.predicted_power),
                 color: '#2563eb',
                 yLabel: 'W',
             });
