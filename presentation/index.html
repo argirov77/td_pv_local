@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PV Forecast — Презентация</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <div class="viewport">
+        <header class="topbar">
+            <div class="branding">
+                <div class="dot"></div>
+                <span>PV Forecast</span>
+            </div>
+            <div class="meta">
+                <span class="pill">Demo Deck</span>
+                <span class="pill">v1.0</span>
+            </div>
+        </header>
+
+        <main class="deck" aria-live="polite">
+            <section class="slide" data-title="Въведение">
+                <div class="text">
+                    <p class="eyebrow">PV Forecast</p>
+                    <h1>Автоматизирана прогноза за соларните ви полета</h1>
+                    <p class="lede">API и уеб интерфейс, който обединява метеорологични данни, радиационни модели и ML корекции, за да даде точни 15-минутни прогнози.</p>
+                    <ul class="tags">
+                        <li>FastAPI</li>
+                        <li>pvlib</li>
+                        <li>ML корекции</li>
+                        <li>UX уеб демо</li>
+                    </ul>
+                </div>
+                <div class="visual">
+                    <img src="images/solar-panels.svg" alt="Стилизирани соларни панели под слънце" />
+                    <div class="caption">Clearsky радиация + облачност + температура → мощност</div>
+                </div>
+            </section>
+
+            <section class="slide" data-title="Предизвикателство">
+                <div class="text">
+                    <p class="eyebrow">Контекст</p>
+                    <h2>Какъв проблем решаваме?</h2>
+                    <div class="grid-two">
+                        <div>
+                            <h3>Променлива радиация</h3>
+                            <p>Облачността и слънчевият ъгъл се менят през деня — нужни са clearsky изчисления и адаптация по часове.</p>
+                        </div>
+                        <div>
+                            <h3>Данни в реално време</h3>
+                            <p>Зависим от достъпността на прогнозни данни и консистентност на таговете за всеки обект.</p>
+                        </div>
+                        <div>
+                            <h3>Моделиране на системата</h3>
+                            <p>Необходимо е да отчетем ефективност, деградация, загуби и температурни коефициенти.</p>
+                        </div>
+                        <div>
+                            <h3>Прозрачен резултат</h3>
+                            <p>Ендпойнтът `/predict` трябва да връща стойности, които бизнесът може да проследи и визуализира.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual">
+                    <img src="images/cloud-temp.svg" alt="Стилизирани облаци, термометър и слънце" />
+                    <div class="caption">Радиация × облачност × температура</div>
+                </div>
+            </section>
+
+            <section class="slide" data-title="Архитектура">
+                <div class="text">
+                    <p class="eyebrow">Компоненти</p>
+                    <h2>Поток на данни и модели</h2>
+                    <ul class="bullets">
+                        <li><strong>Weather API</strong> осигурява прогноза, нормализирана към 15-минутни стъпки.</li>
+                        <li><strong>Clearsky модули</strong> изчисляват радиация върху плоскостта (POA) с координати и геометрия.</li>
+                        <li><strong>ML модел</strong> коригира радиацията спрямо облачност; прилага се над праг от 40 W/m².</li>
+                        <li><strong>Production core</strong> превежда радиацията в мощност на масива с ефективност и деградация.</li>
+                    </ul>
+                </div>
+                <div class="visual">
+                    <img src="images/api-flow.svg" alt="Диаграма на поток между API, модели и визуализация" />
+                    <div class="caption">Единен поток от данни → прогноза</div>
+                </div>
+            </section>
+
+            <section class="slide" data-title="Интерфейс">
+                <div class="text">
+                    <p class="eyebrow">UI/UX</p>
+                    <h2>Демо интерфейс за бързи проверки</h2>
+                    <div class="callouts">
+                        <div class="callout">
+                            <h3>Интерактивни графики</h3>
+                            <p>Chart.js визуализации за радиация, облачност, температура и мощност.</p>
+                        </div>
+                        <div class="callout">
+                            <h3>Таблица с данни</h3>
+                            <p>Всеки времеви шаг се проследява с облачност, POA и прогнозна мощност.</p>
+                        </div>
+                        <div class="callout">
+                            <h3>Фокус върху скорост</h3>
+                            <p>Лека статична страница, готова за хостване до FastAPI или CDN.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual">
+                    <img src="images/ui-preview.svg" alt="Малък макет на уеб интерфейс" />
+                    <div class="caption">UX демо за `/predict`</div>
+                </div>
+            </section>
+
+            <section class="slide" data-title="Следващи стъпки">
+                <div class="text">
+                    <p class="eyebrow">Roadmap</p>
+                    <h2>Какво идва след това?</h2>
+                    <ol class="steps">
+                        <li><span>v1.1</span> Добавяне на интерполация за липсващи метео точки и fallback.</li>
+                        <li><span>v1.2</span> Автоматично обновяване на моделите и мониторинг за дрейф.</li>
+                        <li><span>v1.3</span> Нотификации за аномалии при ниска радиация или отклонения.</li>
+                        <li><span>v2.0</span> Рол-ап на предсказания за портфолио и интеграция с SCADA.</li>
+                    </ol>
+                </div>
+                <div class="visual">
+                    <img src="images/roadmap.svg" alt="Илюстрация на път с маркери" />
+                    <div class="caption">Еволюция на продукта</div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="controls" aria-label="Навигация между слайдове">
+            <div class="breadcrumbs" id="breadcrumbs"></div>
+            <div class="actions">
+                <button type="button" id="prev" aria-label="Предишен слайд">←</button>
+                <button type="button" id="next" aria-label="Следващ слайд">→</button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
